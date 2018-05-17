@@ -1,0 +1,211 @@
+---
+schema: armada/Chart/v1
+metadata:
+  schema: metadata/Document/v1
+  name: helm-toolkit-infra
+data:
+  chart_name: helm-toolkit-infra
+  release: helm-toolkit-infra
+  namespace: helm-tookit-infra
+  values: {}
+  source:
+    type: git
+    location: https://github.com/openstack/openstack-helm-infra
+    subpath: helm-toolkit
+    reference: master
+  dependencies: []
+---
+schema: armada/Chart/v1
+metadata:
+  schema: metadata/Document/v1
+  name: prometheus 
+data:
+  chart_name: prometheus
+  release: prometheus
+  namespace: openstack
+  timeout: 3600
+  wait:
+    timeout: 3600
+    labels:
+      release_group: single-prometheus
+  install:
+    no_hooks: false
+  upgrade:
+    no_hooks: false
+  values:
+    pod:
+      replicas:
+        prometheus: 1
+    storage:
+      enabled: false
+      pvc:
+        name: prometheus-pvc
+        access_mode: [ "ReadWriteOnce" ]
+      requests:
+        storage: 5Gi
+      storage_class: ceph
+  source:
+    type: git
+    location: https://github.com/openstack/openstack-helm-infra
+    subpath: prometheus
+    reference: master
+  dependencies:
+    - helm-toolkit-infra
+---
+schema: armada/Chart/v1
+metadata:
+  schema: metadata/Document/v1
+  name: prometheus-kube-state-metrics 
+data:
+  chart_name: prometheus-kube-state-metrics
+  release: prometheus-kube-state-metrics
+  namespace: openstack
+  timeout: 3600
+  wait:
+    timeout: 3600
+    labels:
+      release_group: single-prometheus-kube-state-metrics
+  install:
+    no_hooks: false
+  upgrade:
+    no_hooks: false
+  values:
+    images:
+      tags:
+        kube_state_metrics: quay.io/coreos/kube-state-metrics:v1.2.0
+        dep_check: quay.io/stackanetes/kubernetes-entrypoint:v0.3.0
+        image_repo_sync: docker.io/docker:17.07.0
+  source:
+    type: git
+    location: https://github.com/openstack/openstack-helm-infra
+    subpath: prometheus-kube-state-metrics
+    reference: master
+  dependencies:
+    - helm-toolkit-infra
+---
+schema: armada/Chart/v1
+metadata:
+  schema: metadata/Document/v1
+  name: prometheus-node-exporter 
+data:
+  chart_name: prometheus-node-exporter
+  release: prometheus-node-exporter
+  namespace: openstack
+  timeout: 3600
+  wait:
+    timeout: 3600
+    labels:
+      release_group: single-prometheus-node-exporter
+  install:
+    no_hooks: false
+  upgrade:
+    no_hooks: false
+  values:
+    labels:
+      node_selector_key: node-exporter
+      node_selector_value: enabled
+    images:
+      tags:
+        prometheus_openstack_exporter: docker.io/rakeshpatnaik/prometheus-openstack-exporter:v0.1
+        dep_check: quay.io/stackanetes/kubernetes-entrypoint:v0.3.0
+        image_repo_sync: docker.io/docker:17.07.0
+  source:
+    type: git
+    location: https://github.com/openstack/openstack-helm-infra
+    subpath: prometheus-node-exporter
+    reference: master
+  dependencies:
+    - helm-toolkit-infra
+---
+schema: armada/Chart/v1
+metadata:
+  schema: metadata/Document/v1
+  name: prometheus-openstack-exporter 
+data:
+  chart_name: prometheus-openstack-exporter
+  release: prometheus-openstack-exporter
+  namespace: openstack
+  timeout: 3600
+  wait:
+    timeout: 3600
+    labels:
+      release_group: single-prometheus-openstack-exporter
+  install:
+    no_hooks: false
+  upgrade:
+    no_hooks: false
+  values:
+    images:
+      tags:
+        prometheus_openstack_exporter: docker.io/rakeshpatnaik/prometheus-openstack-exporter:v0.1
+        dep_check: quay.io/stackanetes/kubernetes-entrypoint:v0.3.0
+        image_repo_sync: docker.io/docker:17.07.0
+  source:
+    type: git
+    location: https://github.com/openstack/openstack-helm-infra
+    subpath: prometheus-openstack-exporter
+    reference: master
+  dependencies:
+    - helm-toolkit-infra
+---
+schema: armada/Chart/v1
+metadata:
+  schema: metadata/Document/v1
+  name: grafana 
+data:
+  chart_name: grafana
+  release: grafana
+  namespace: openstack
+  timeout: 3600
+  wait:
+    timeout: 3600
+    labels:
+      release_group: single-grafana
+  install:
+    no_hooks: false
+  upgrade:
+    no_hooks: false
+  values:
+    images:
+      tags:
+        grafana: docker.io/grafana/grafana:4.5.2
+        datasource: docker.io/kolla/ubuntu-source-heat-engine:3.0.3
+        dep_check: quay.io/stackanetes/kubernetes-entrypoint:v0.3.0
+        db_init: docker.io/kolla/ubuntu-source-heat-engine:3.0.3
+        grafana_db_session_sync: docker.io/kolla/ubuntu-source-heat-engine:3.0.3
+        image_repo_sync: docker.io/docker:17.07.0
+    network:
+      prometheus:
+        node_port:
+          enabled: true
+          port: 30900
+  source:
+    type: git
+    location: https://github.com/openstack/openstack-helm-infra
+    subpath: grafana
+    reference: master
+  dependencies:
+    - helm-toolkit-infra
+---
+schema: armada/ChartGroup/v1
+metadata:
+  schema: metadata/Document/v1
+  name: monitoring-infra
+data:
+  description: "Logging Infrastructure"
+  sequenced: True
+  chart_group:
+    - grafana
+    - prometheus
+    - prometheus-kube-state-metrics
+    - prometheus-node-exporter
+    - prometheus-openstack-exporter
+---
+schema: armada/Manifest/v1
+metadata:
+  schema: metadata/Document/v1
+  name: single-manifest
+data:
+  release_prefix: single
+  chart_groups:
+    - monitoring-infra
